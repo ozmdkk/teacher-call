@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>교무실 호출</title>
+<style>
+  :root{
+    --ink:#1c2536;
+    --paper:#f3efe6;
+    --card:#ffffff;
+    --accent:#c0392b;
+    --accent-deep:#9c2b1e;
+    --line:#d8d0c0;
+    --muted:#7a8395;
+    --ok:#2e7d4f;
+    --shadow:0 18px 40px -18px rgba(28,37,54,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Pretendard','Apple SD Gothic Neo',system-ui,sans-serif;
+    background:
+      radial-gradient(120% 80% at 50% 0%, #faf7f0 0%, var(--paper) 60%);
+    color:var(--ink);
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:28px 28px 36px;
+  }
+  .frame{width:100%;max-width:1040px}
+
+  header{text-align:center;margin:0 0 20px}
+  .eyebrow{
+    font-size:13px;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;margin-bottom:8px;
+  }
+  h1{
+    font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-.02em;
+  }
+  .sub{margin-top:8px;color:var(--muted);font-size:15px;line-height:1.5}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:22px;
+    padding:26px;
+    box-shadow:var(--shadow);
+  }
+  /* 상단 좌석표 / 하단 입력 구조 */
+  .seat-section{margin-bottom:4px}
+  .divider{height:1px;background:var(--line);margin:20px 0}
+  .form-section{}
+  .form-grid{
+    display:grid;
+    grid-template-columns:1.4fr 1fr 1fr 1.4fr;
+    gap:16px;
+    align-items:end;
+  }
+  .form-grid .field{margin-bottom:0}
+
+  .field{margin-bottom:18px}
+  label{display:block;font-size:14px;font-weight:700;margin-bottom:9px}
+  .req{color:var(--accent)}
+  input{
+    width:100%;font-size:17px;padding:15px 16px;
+    border:1.5px solid var(--line);border-radius:13px;
+    background:#fcfbf8;color:var(--ink);font-family:inherit;
+    transition:border-color .15s,background .15s;
+  }
+  input:focus{outline:none;border-color:var(--accent);background:#fff}
+  input::placeholder{color:#b7b0a2}
+
+  .grade-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  .selectwrap{position:relative}
+  .picker{
+    width:100%;font-size:17px;font-family:inherit;color:var(--ink);
+    padding:15px 42px 15px 16px;
+    border:1.5px solid var(--line);border-radius:13px;background:#fcfbf8;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+    transition:border-color .15s,background .15s;
+  }
+  .picker:focus{outline:none;border-color:var(--accent);background:#fff}
+  .picker:invalid{color:#b7b0a2}
+  .selectwrap::after{
+    content:"";position:absolute;right:16px;top:50%;
+    width:10px;height:10px;margin-top:-7px;pointer-events:none;
+    border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
+    transform:rotate(45deg);
+  }
+
+  #tName{cursor:default;background:#f7f4ee}
+  .seatcap{font-size:12.5px;color:var(--muted);margin:0 0 10px;line-height:1.4}
+
+  .seatmap{
+    display:grid;grid-template-columns:repeat(6,1fr);
+    gap:9px;
+    background:#efe9dc;border:1px solid var(--line);
+    border-radius:14px;padding:11px;
+  }
+  .seat-gap{visibility:hidden}
+  .seat{
+    display:flex;align-items:center;justify-content:center;
+    text-align:center;font-family:inherit;cursor:pointer;
+    border:1.5px solid transparent;border-radius:11px;
+    padding:16px 10px;min-height:66px;
+    background:#fff;color:var(--ink);transition:.12s;
+    border-left-width:5px;
+  }
+  .seat:hover{box-shadow:0 8px 18px -10px rgba(28,37,54,.5);transform:translateY(-2px)}
+  .seat-name{font-size:19px;font-weight:800;letter-spacing:-.01em}
+  /* 부서 색 구분 */
+  .seat.dept-A{border-left-color:#c0392b}
+  .seat.dept-B{border-left-color:#2e6db0}
+  .seat.dept-C{border-left-color:#2e7d4f}
+  .seat.on{
+    border-color:var(--accent);border-left-color:var(--accent);
+    background:#fff4f2;box-shadow:0 0 0 2px var(--accent) inset;
+  }
+  .seat.empty{
+    background:transparent;border:1.5px dashed #cdc4b2;color:#b3aa98;
+    cursor:default;align-items:center;justify-content:center;
+    font-size:12px;font-weight:600;border-left-width:1.5px;
+  }
+  .seat.empty:hover{box-shadow:none;transform:none}
+
+  /* 화면이 좁아질 때 */
+  @media (max-width:760px){
+    .frame{max-width:600px}
+    .form-grid{grid-template-columns:1fr 1fr;gap:14px}
+    .seat{min-height:74px;padding:10px}
+    .seat-name{font-size:15.5px}
+  }
+  @media (max-width:480px){
+    body{padding:20px 14px 32px}
+    .form-grid{grid-template-columns:1fr;gap:13px}
+    .seat{min-height:48px;padding:10px 6px}
+    .seat-name{font-size:14px}
+    .seatmap{gap:6px;padding:8px}
+  }
+
+  .callbtn{
+    width:100%;margin-top:20px;
+    font-family:inherit;font-size:20px;font-weight:800;letter-spacing:-.01em;
+    color:#fff;background:linear-gradient(180deg,var(--accent),var(--accent-deep));
+    border:none;border-radius:16px;padding:20px;cursor:pointer;
+    box-shadow:0 12px 24px -10px rgba(192,57,43,.7);
+    transition:transform .08s,filter .15s;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .callbtn:active{transform:translateY(2px)}
+  .callbtn:disabled{filter:grayscale(.5) opacity(.6);cursor:default}
+  .callbtn svg{width:24px;height:24px}
+
+  .hint{font-size:12.5px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5}
+
+  /* 호출 진행 오버레이 */
+  .overlay{
+    position:fixed;inset:0;background:rgba(28,37,54,.55);
+    backdrop-filter:blur(4px);display:none;
+    align-items:center;justify-content:center;padding:24px;z-index:50;
+  }
+  .overlay.show{display:flex}
+  .panel{
+    background:var(--card);border-radius:24px;padding:36px 28px;
+    width:100%;max-width:420px;text-align:center;box-shadow:var(--shadow);
+  }
+  .pulse{
+    width:96px;height:96px;margin:0 auto 22px;border-radius:50%;
+    background:var(--accent);display:flex;align-items:center;justify-content:center;
+    color:#fff;animation:ring 1.1s ease-out infinite;
+  }
+  .pulse svg{width:44px;height:44px}
+  @keyframes ring{
+    0%{box-shadow:0 0 0 0 rgba(192,57,43,.5)}
+    100%{box-shadow:0 0 0 28px rgba(192,57,43,0)}
+  }
+  .panel.done .pulse{background:var(--ok);animation:none}
+  .panel h2{font-size:23px;margin-bottom:10px;letter-spacing:-.02em}
+  .panel p{color:var(--muted);font-size:15px;line-height:1.6}
+  .panel .who{color:var(--ink);font-weight:700}
+  .panel-actions{display:flex;gap:10px;margin-top:26px}
+  .pbtn{
+    flex:1;font-family:inherit;font-size:16px;font-weight:700;padding:15px;
+    border-radius:13px;cursor:pointer;border:1.5px solid var(--line);
+    background:#fcfbf8;color:var(--ink);transition:.12s;
+  }
+  .pbtn:hover{border-color:var(--accent)}
+  .pbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .pbtn.primary:hover{filter:brightness(1.05)}
+
+  @media (prefers-reduced-motion:reduce){
+    .pulse{animation:none}
+    .callbtn{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div class="eyebrow">교무실 호출</div>
+    <h1>선생님을 불러 드릴게요</h1>
+    <p class="sub">정보를 입력하고 호출하면, 교무실 안으로<br>음성 안내가 나갑니다.</p>
+  </header>
+
+  <div class="card">
+    <!-- 상단: 선생님 좌석표 -->
+    <div class="seat-section">
+      <p class="seatcap">교사연구실 (화·목 I) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요</p>
+      <div class="seatmap" id="seatmap"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 하단: 학생 인적사항 -->
+    <div class="form-section">
+      <div class="form-grid">
+        <div class="field">
+          <label for="sName">학생 이름 <span class="req">*</span></label>
+          <input id="sName" type="text" placeholder="예: 김민준" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="sGrade">학년 <span class="req">*</span></label>
+          <div class="selectwrap">
+            <select id="sGrade" class="picker">
+              <option value="" disabled selected>학년 선택</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="sClass">반 <span class="req">*</span></label>
+          <div class="selectwrap">
+            <select id="sClass" class="picker">
+              <option value="" disabled selected>반 선택</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="tName">찾는 선생님 <span class="req">*</span></label>
+          <input id="tName" type="text" placeholder="위 좌석표에서 선택" autocomplete="off" readonly>
+        </div>
+      </div>
+
+      <button class="callbtn" id="callBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        선생님 호출하기
+      </button>
+      <p class="hint">호출하면 교무실 스피커로 음성이 흘러나옵니다. 장난 호출은 삼가 주세요.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 호출 진행 / 완료 오버레이 -->
+<div class="overlay" id="overlay">
+  <div class="panel" id="panel">
+    <div class="pulse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    </div>
+    <h2 id="panelTitle">호출 중…</h2>
+    <p id="panelMsg"></p>
+    <div class="panel-actions" id="panelActions" style="display:none">
+      <button class="pbtn" id="againBtn">다시 부르기</button>
+      <button class="pbtn primary" id="closeBtn">완료</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 교사연구실(화·목 I) 좌석표 — 사진의 자리 배치 그대로
+  // dept: 부서 색 구분 / sub: 담당 과목·역할(보조 표시 및 음성 안내용)
+  const SEATS = [
+    // 1행
+    { name:"한희수", dept:"A" },
+    { name:"이성원", dept:"B" },
+    { name:"이원희", dept:"C" },
+    // 2행
+    { name:"김성은", dept:"A" },
+    { name:"장태민", dept:"A" },
+    { name:"위미림", dept:"B" },
+    { name:"손혜정", dept:"B" },
+    { name:"김나영", dept:"C" },
+    { name:"구해수", dept:"C" },
+    // 3행
+    { name:"박주연", dept:"A" },
+    { name:"강예림", dept:"B" },
+    { name:"박정은", dept:"B" },
+    { name:"양시은", dept:"C" },
+    { name:"이영숙", dept:"C" },
+    { name:"", empty:true, label:"순회교사", dept:"C" },
+  ];
+  // 좌석표 행 구성(각 칸 = SEATS 인덱스, null = 빈칸 자리맞춤)
+  const SEAT_ROWS = [
+    [0,  null, 1,  null, null, 2   ],
+    [3,  4,    5,  6,    7,    8   ],
+    [9,  null, 10, 11,   12,   13  ],
+    [null, null, null, null, null, 14],
+  ];
+
+  const $ = id => document.getElementById(id);
+  const tName = $('tName');
+
+  // 좌석표 렌더링
+  const seatmap = $('seatmap');
+  let allSeats = [];
+  SEAT_ROWS.forEach(row=>{
+    row.forEach(idx=>{
+      if(idx===null){
+        const sp=document.createElement('div');sp.className='seat-gap';
+        seatmap.appendChild(sp);return;
+      }
+      const s=SEATS[idx];
+      if(s.empty){
+        const e=document.createElement('div');
+        e.className='seat empty';e.textContent=s.label||'빈자리';
+        seatmap.appendChild(e);return;
+      }
+      const b=document.createElement('button');
+      b.type='button';b.className='seat dept-'+s.dept;
+      b.innerHTML=`<span class="seat-name">${s.name}</span>`;
+      b.onclick=()=>{
+        allSeats.forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');tName.value=s.name;
+      };
+      seatmap.appendChild(b);allSeats.push(b);
+    });
+  });
+
+  // 학년·반 범위 — 학교 상황에 맞게 숫자만 바꾸세요
+  const GRADES = 3;            // 1~3학년
+  const CLASSES_PER_GRADE = 8; // 각 학년 1~8반
+
+  const gradeSel = $('sGrade'), classSel = $('sClass');
+  for(let g=1; g<=GRADES; g++){
+    const o=document.createElement('option');
+    o.value=g;o.textContent=g+'학년';gradeSel.appendChild(o);
+  }
+  for(let c=1; c<=CLASSES_PER_GRADE; c++){
+    const o=document.createElement('option');
+    o.value=c;o.textContent=c+'반';classSel.appendChild(o);
+  }
+
+  function speak(text){
+    if(!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const ko=speechSynthesis.getVoices().find(v=>v.lang&&v.lang.startsWith('ko'));
+
+    // 같은 문장을 2번 반복해 한 번 놓쳐도 들리게 함
+    let firstUtter=null;
+    for(let i=0;i<2;i++){
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang='ko-KR';
+      u.rate=0.9;     // 또렷하게 약간 천천히
+      u.pitch=1;
+      u.volume=1;     // 0~1, 소프트웨어상 최대
+      if(ko) u.voice=ko;
+      speechSynthesis.speak(u);
+      if(i===0) firstUtter=u;
+    }
+    return firstUtter; // 완료 처리는 첫 번째 발화 기준
+  }
+  // 일부 브라우저는 voice 목록을 비동기로 로드함
+  if('speechSynthesis' in window){ speechSynthesis.onvoiceschanged=()=>{}; }
+
+  const overlay=$('overlay'), panel=$('panel');
+  let lastMessage='';
+
+  function startCall(){
+    const name=$('sName').value.trim();
+    const grade=$('sGrade').value.trim();
+    const cls=$('sClass').value.trim();
+    const teacher=tName.value.trim();
+
+    const missing=[];
+    if(!name) missing.push('학생 이름');
+    if(!grade) missing.push('학년');
+    if(!cls) missing.push('반');
+    if(!teacher) missing.push('찾는 선생님');
+    if(missing.length){
+      alert(missing.join(', ') + ' 을(를) 입력해 주세요.');
+      return;
+    }
+
+    lastMessage = `${teacher} 선생님, ${grade}학년 ${cls}반 ${name} 학생이 교무실 앞에서 기다리고 있습니다.`;
+
+    overlay.classList.add('show');
+    panel.classList.remove('done');
+    $('panelTitle').textContent='호출 중…';
+    $('panelActions').style.display='none';
+    $('panelMsg').innerHTML =
+      `<span class="who">${teacher} 선생님</span>을<br>음성으로 부르고 있어요.`;
+
+    const u=speak(lastMessage);
+    let finished=false;
+    const finish=()=>{
+      if(finished) return; finished=true;
+      panel.classList.add('done');
+      panel.querySelector('.pulse').innerHTML=
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      $('panelTitle').textContent='호출했어요';
+      $('panelMsg').innerHTML =
+        `<span class="who">${teacher} 선생님</span>께 안내가 나갔습니다.<br>선생님이 나오실 때까지 잠시 기다려 주세요.`;
+      $('panelActions').style.display='flex';
+    };
+    if(u){
+      // 모든 발화(2회)가 끝났는지 확인 후 완료 처리
+      const check=()=>{
+        if(speechSynthesis.speaking){ setTimeout(check,400); }
+        else { finish(); }
+      };
+      u.onend=()=>setTimeout(check,300);
+      setTimeout(finish,12000); // 안전장치
+    }
+    else { finish(); } // 음성 미지원 시 바로 완료
+  }
+
+  $('callBtn').addEventListener('click',startCall);
+  $('againBtn').addEventListener('click',()=>{
+    panel.querySelector('.pulse').innerHTML=
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+    panel.classList.remove('done');
+    $('panelTitle').textContent='호출 중…';
+    $('panelActions').style.display='none';
+    speak(lastMessage);
+    setTimeout(()=>{
+      panel.classList.add('done');
+      panel.querySelector('.pulse').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      $('panelTitle').textContent='호출했어요';
+      $('panelActions').style.display='flex';
+    },9000);
+  });
+  $('closeBtn').addEventListener('click',()=>{
+    overlay.classList.remove('show');
+    $('sName').value='';$('sGrade').value='';$('sClass').value='';
+    tName.value='';allSeats.forEach(c=>c.classList.remove('on'));
+    $('sName').focus();
+  });
+</script>
+</body>
+</html>
