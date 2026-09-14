@@ -680,21 +680,24 @@
       $('panelMsg').innerHTML =
         `<span class="who">${teacher} 선생님</span>께 안내가 나갔습니다.<br>선생님이 나오실 때까지 잠시 기다려 주세요.`;
       $('panelActions').style.display='flex';
+      startAutoClose();
     };
     if(u){
-      // 모든 발화(2회)가 끝났는지 확인 후 완료 처리
+      // 음성이 끝나면(또는 최대 6초 후) 완료 화면으로
       const check=()=>{
         if(speechSynthesis.speaking){ setTimeout(check,400); }
         else { finish(); }
       };
       u.onend=()=>setTimeout(check,300);
-      setTimeout(finish,12000); // 안전장치
+      setTimeout(finish,6000); // 안전장치(음성이 끝나지 않아도 진행)
     }
-    else { finish(); } // 음성 미지원 시 바로 완료
+    else { setTimeout(finish, 800); } // 음성 미지원 시 잠깐 뒤 완료
   }
 
   $('callBtn').addEventListener('click',startCall);
   $('againBtn').addEventListener('click',()=>{
+    clearAutoClose();
+    $('closeBtn').textContent='완료';
     panel.querySelector('.pulse').innerHTML=
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
     panel.classList.remove('done');
@@ -706,14 +709,41 @@
       panel.querySelector('.pulse').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
       $('panelTitle').textContent='호출했어요';
       $('panelActions').style.display='flex';
+      startAutoClose();
     },9000);
   });
-  $('closeBtn').addEventListener('click',()=>{
+  let autoCloseTimer = null;
+  let autoCloseInterval = null;
+
+  // 완료 화면이 뜬 뒤 이 시간(초)이 지나면 자동으로 닫힘. 원하는 값으로 바꾸세요.
+  const AUTO_CLOSE_SEC = 8;
+
+  function clearAutoClose(){
+    if(autoCloseTimer){ clearTimeout(autoCloseTimer); autoCloseTimer=null; }
+    if(autoCloseInterval){ clearInterval(autoCloseInterval); autoCloseInterval=null; }
+  }
+  function startAutoClose(){
+    clearAutoClose();
+    let left = AUTO_CLOSE_SEC;
+    const closeBtn = $('closeBtn');
+    closeBtn.textContent = `완료 (${left})`;
+    autoCloseInterval = setInterval(()=>{
+      left -= 1;
+      if(left > 0){ closeBtn.textContent = `완료 (${left})`; }
+      else { closeBtn.textContent = '완료'; }
+    }, 1000);
+    autoCloseTimer = setTimeout(()=>{ resetAndClose(); }, AUTO_CLOSE_SEC*1000);
+  }
+
+  function resetAndClose(){
+    clearAutoClose();
+    $('closeBtn').textContent = '완료';
     overlay.classList.remove('show');
     $('sName').value='';$('sGrade').value='';$('sClass').value='';
     tName.value='';allSeats.forEach(c=>c.classList.remove('on'));
     $('sName').focus();
-  });
+  }
+  $('closeBtn').addEventListener('click', resetAndClose);
 </script>
 </body>
 </html>
