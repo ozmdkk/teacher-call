@@ -103,11 +103,16 @@
   .admin-toggle:hover{border-color:var(--accent);color:var(--accent)}
   .admin-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .admin-banner{
-    display:none;align-items:center;justify-content:space-between;gap:12px;
+    display:none;flex-direction:column;gap:11px;
     background:#fff4f2;border:1.5px solid var(--accent);border-radius:12px;
-    padding:11px 14px;margin-bottom:11px;font-size:14px;color:var(--accent-deep);
+    padding:13px 14px;margin-bottom:11px;font-size:14px;color:var(--accent-deep);
   }
   .admin-banner.show{display:flex}
+  .admin-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .admin-row.admin-note{font-size:13.5px}
+  .admin-label{font-weight:800;font-size:13px;flex-shrink:0}
+  .admin-selectwrap{flex:1;max-width:340px}
+  .admin-picker{padding:10px 40px 10px 13px;font-size:15px;border-radius:10px}
   .admin-done{
     flex-shrink:0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
     background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:9px;
@@ -249,8 +254,16 @@
         <button class="admin-toggle" id="adminToggle" title="관리">관리</button>
       </div>
       <div class="admin-banner" id="adminBanner">
-        <span>관리 모드 · 선생님을 눌러 <b>부재중/재실</b>을 바꾸세요.</span>
-        <button class="admin-done" id="adminDone">완료</button>
+        <div class="admin-row">
+          <label class="admin-label" for="officeSelect">교무실</label>
+          <div class="selectwrap admin-selectwrap">
+            <select id="officeSelect" class="picker admin-picker"></select>
+          </div>
+        </div>
+        <div class="admin-row admin-note">
+          <span>선생님을 눌러 <b>부재중/재실</b>을 바꿀 수 있어요.</span>
+          <button class="admin-done" id="adminDone">완료</button>
+        </div>
       </div>
       <div class="seatmap" id="seatmap"></div>
     </div>
@@ -311,48 +324,174 @@
 </div>
 
 <script>
-  // 교사연구실(화·목 I) 좌석표 — 사진의 자리 배치 그대로
-  // dept: 부서 색 구분 / sub: 담당 과목·역할(보조 표시 및 음성 안내용)
-  const SEATS = [
-    // 1행
-    { name:"한희수", dept:"A" },
-    { name:"이성원", dept:"B" },
-    { name:"이원희", dept:"C" },
-    // 2행
-    { name:"김성은", dept:"A" },
-    { name:"장태민", dept:"A" },
-    { name:"위미림", dept:"B" },
-    { name:"손혜정", dept:"B" },
-    { name:"김나영", dept:"C" },
-    { name:"구해수", dept:"C" },
-    // 3행
-    { name:"박주연", dept:"A" },
-    { name:"강예림", dept:"B" },
-    { name:"박정은", dept:"B" },
-    { name:"양시은", dept:"C" },
-    { name:"이영숙", dept:"C" },
-    { name:"", empty:true, label:"순회교사", dept:"C" },
-  ];
-  // 좌석표 행 구성(각 칸 = SEATS 인덱스, null = 빈칸 자리맞춤)
-  const SEAT_ROWS = [
-    [0,  null, 1,  null, null, 2   ],
-    [3,  4,    5,  6,    7,    8   ],
-    [9,  null, 10, 11,   12,   13  ],
-    [null, null, null, null, null, 14],
+  // ===== 교무실별 좌석표 =====
+  // 교무실을 추가하려면 OFFICES 배열에 { id, name, caption, seats, rows } 항목을 더하세요.
+  //  - dept: 부서 색 구분(A=빨강, B=파랑, C=초록)
+  //  - rows: 각 칸은 seats의 인덱스, null은 빈칸(자리맞춤)
+  const OFFICES = [
+    {
+      id: "office1",
+      name: "교사연구실 (화·목 I)",
+      caption: "교사연구실 (화·목 I) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요",
+      cols: 6,
+      seats: [
+        // 1행
+        { name:"한희수", dept:"A" },
+        { name:"이성원", dept:"B" },
+        { name:"이원희", dept:"C" },
+        // 2행
+        { name:"김성은", dept:"A" },
+        { name:"장태민", dept:"A" },
+        { name:"위미림", dept:"B" },
+        { name:"손혜정", dept:"B" },
+        { name:"김나영", dept:"C" },
+        { name:"구해수", dept:"C" },
+        // 3행
+        { name:"박주연", dept:"A" },
+        { name:"강예림", dept:"B" },
+        { name:"박정은", dept:"B" },
+        { name:"양시은", dept:"C" },
+        { name:"이영숙", dept:"C" },
+        { name:"", empty:true, label:"순회교사", dept:"C" },
+      ],
+      rows: [
+        [0,  null, 1,  null, null, 2   ],
+        [3,  4,    5,  6,    7,    8   ],
+        [9,  null, 10, 11,   12,   13  ],
+        [null, null, null, null, null, 14],
+      ],
+    },
+    {
+      id: "office2",
+      name: "2층 교사연구실 (화·목 2) — 진로진학부",
+      caption: "2층 교사연구실 (화·목 2) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요",
+      cols: 2,
+      seats: [
+        { name:"이정숙", dept:"A" },   // 0
+        { name:"이지성", dept:"B" },   // 1
+        { name:"종의룡", dept:"B" },   // 2
+        { name:"윤여정", dept:"A" },   // 3
+      ],
+      rows: [
+        [0,    1   ],
+        [null, 2   ],
+        [3,    null],
+      ],
+    },
+    {
+      id: "office3",
+      name: "4층 교사연구실 (화3) — 창의융합부",
+      caption: "4층 교사연구실 (화3) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요",
+      cols: 2,
+      seats: [
+        { name:"정민기", dept:"B" },   // 0
+        { name:"이하은", dept:"A" },   // 1
+        { name:"이동석", dept:"B" },   // 2
+        { name:"홍혜진", dept:"A" },   // 3
+        { name:"이선영", dept:"B" },   // 4
+      ],
+      rows: [
+        [0,  null],
+        [1,  2   ],
+        [3,  4   ],
+      ],
+    },
+    {
+      id: "office4",
+      name: "5층 교사연구실 (화목4) — 학생생활안전부",
+      caption: "5층 교사연구실 (화목4) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요",
+      cols: 2,
+      seats: [
+        { name:"김소연", dept:"A" },   // 0
+        { name:"정동원", dept:"B" },   // 1
+        { name:"심혁",   dept:"A" },   // 2
+        { name:"조장식", dept:"B" },   // 3
+        { name:"김효림", dept:"A" },   // 4
+        { name:"임예진", dept:"B" },   // 5
+      ],
+      rows: [
+        [0, 1],
+        [2, 3],
+        [4, 5],
+      ],
+    },
+    {
+      id: "office5",
+      name: "1층 교사연구실 (사랑) — 대외협력부·직업교육부",
+      caption: "1층 교사연구실 (사랑) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요",
+      cols: 5,
+      seats: [
+        // 대외협력부(A) — 왼쪽 2열
+        { name:"맹진이", dept:"A" },   // 0
+        { name:"조금전", dept:"A" },   // 1
+        { name:"이근정", dept:"A" },   // 2
+        { name:"김보라", dept:"A" },   // 3
+        { name:"김기혁", dept:"A" },   // 4
+        { name:"박채린", dept:"A" },   // 5
+        // 직업교육부(B) — 오른쪽 2열
+        { name:"신경화", dept:"B" },   // 6
+        { name:"김진수", dept:"B" },   // 7
+        { name:"조은별", dept:"B" },   // 8
+        { name:"임기범", dept:"B" },   // 9
+        { name:"김유리", dept:"B" },   // 10
+      ],
+      rows: [
+        [0, 1, null, 6, 7 ],
+        [2, 3, null, 8, 9 ],
+        [4, 5, null, 10, null],
+      ],
+    },
+    {
+      id: "office6",
+      name: "2층 교사연구실 (사랑2) — 취업지원부·문화정보부",
+      caption: "2층 교사연구실 (사랑2) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요",
+      cols: 5,
+      seats: [
+        // 취업지원부(A) — 왼쪽 2열
+        { name:"권도영", dept:"A" },   // 0
+        { name:"이상현", dept:"A" },   // 1
+        { name:"이지수", dept:"A" },   // 2
+        { name:"최지우", dept:"A" },   // 3
+        { name:"김예서", dept:"A" },   // 4
+        { name:"최양정", dept:"A" },   // 5
+        // 문화정보부(B) — 오른쪽 2열
+        { name:"황학선", dept:"B" },   // 6
+        { name:"박아람", dept:"B" },   // 7
+        { name:"가준호", dept:"B" },   // 8
+      ],
+      rows: [
+        [0, 1,    null, 6,    null],
+        [2, 3,    null, 7,    null],
+        [4, 5,    null, 8,    null],
+      ],
+    },
   ];
 
   const $ = id => document.getElementById(id);
   const tName = $('tName');
 
-  // ===== 부재중 상태 (이 기기에 저장) =====
-  const AWAY_KEY = 'teacherAway_v1';
-  let awaySet = new Set();
+  // ===== 현재 선택된 교무실 (이 기기에 저장) =====
+  const OFFICE_KEY = 'currentOffice_v1';
+  let currentOfficeId = OFFICES[0].id;
   try{
-    const saved = JSON.parse(localStorage.getItem(AWAY_KEY) || '[]');
-    if(Array.isArray(saved)) awaySet = new Set(saved);
+    const saved = localStorage.getItem(OFFICE_KEY);
+    if(saved && OFFICES.some(o=>o.id===saved)) currentOfficeId = saved;
   }catch(e){}
+  function currentOffice(){ return OFFICES.find(o=>o.id===currentOfficeId) || OFFICES[0]; }
+  function saveOffice(){ try{ localStorage.setItem(OFFICE_KEY, currentOfficeId); }catch(e){} }
+
+  // ===== 부재중 상태 (교무실별로 이 기기에 저장) =====
+  const AWAY_KEY = 'teacherAway_v2';   // 구조: { officeId: [이름들] }
+  let awayAll = {};
+  try{
+    const saved = JSON.parse(localStorage.getItem(AWAY_KEY) || '{}');
+    if(saved && typeof saved === 'object') awayAll = saved;
+  }catch(e){}
+  function awaySetFor(id){ return new Set(awayAll[id] || []); }
+  let awaySet = awaySetFor(currentOfficeId);
   function saveAway(){
-    try{ localStorage.setItem(AWAY_KEY, JSON.stringify([...awaySet])); }catch(e){}
+    awayAll[currentOfficeId] = [...awaySet];
+    try{ localStorage.setItem(AWAY_KEY, JSON.stringify(awayAll)); }catch(e){}
   }
 
   let adminMode = false; // 관리 모드일 때 좌석을 눌러 부재중 토글
@@ -363,6 +502,11 @@
   function renderSeats(){
     seatmap.innerHTML = '';
     allSeats = [];
+    const office = currentOffice();
+    const SEATS = office.seats;
+    const SEAT_ROWS = office.rows;
+    const cols = office.cols || 6;
+    seatmap.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
     SEAT_ROWS.forEach(row=>{
       row.forEach(idx=>{
         if(idx===null){
@@ -398,11 +542,35 @@
       });
     });
   }
+  // 학생 화면 캡션을 현재 교무실 기준으로
+  function updateStudentCaption(){
+    $('seatcap').textContent = currentOffice().caption;
+  }
   renderSeats();
+  updateStudentCaption();
 
-  // ===== 관리 모드 (부재중 설정) =====
+  // 교무실 선택 드롭다운 채우기
+  const officeSelect = $('officeSelect');
+  function fillOfficeSelect(){
+    officeSelect.innerHTML = '';
+    OFFICES.forEach(o=>{
+      const opt=document.createElement('option');
+      opt.value=o.id; opt.textContent=o.name;
+      if(o.id===currentOfficeId) opt.selected=true;
+      officeSelect.appendChild(opt);
+    });
+  }
+  fillOfficeSelect();
+  officeSelect.addEventListener('change', ()=>{
+    currentOfficeId = officeSelect.value;
+    saveOffice();
+    awaySet = awaySetFor(currentOfficeId);   // 교무실별 부재중 불러오기
+    tName.value=''; renderSeats();
+  });
+
+  // ===== 관리 모드 (부재중 설정 · 교무실 전환) =====
   // 실수 방지용 PIN. 학교에서 원하는 숫자로 바꾸세요.
-  const ADMIN_PIN = '8864';
+  const ADMIN_PIN = '1234';
 
   const adminToggle = $('adminToggle');
   const adminBanner = $('adminBanner');
@@ -413,7 +581,7 @@
     seatmap.classList.add('admin');
     adminToggle.classList.add('on');
     adminBanner.classList.add('show');
-    $('seatcap').textContent = '관리 모드 · 부재중으로 바꿀 선생님을 누르세요';
+    $('seatcap').textContent = '관리 모드 · 교무실을 바꾸거나, 부재중으로 바꿀 선생님을 누르세요';
     tName.value=''; allSeats.forEach(x=>x.classList.remove('on'));
     renderSeats();
   }
@@ -422,7 +590,7 @@
     seatmap.classList.remove('admin');
     adminToggle.classList.remove('on');
     adminBanner.classList.remove('show');
-    $('seatcap').textContent = '교사연구실 (화·목 I) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요';
+    updateStudentCaption();
     renderSeats();
   }
 
