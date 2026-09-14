@@ -93,7 +93,26 @@
   }
 
   #tName{cursor:default;background:#f7f4ee}
-  .seatcap{font-size:12.5px;color:var(--muted);margin:0 0 10px;line-height:1.4}
+  .seat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .seatcap{font-size:12.5px;color:var(--muted);margin:0;line-height:1.4}
+  .admin-toggle{
+    flex-shrink:0;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;
+    color:var(--muted);background:transparent;border:1.5px solid var(--line);
+    padding:6px 12px;border-radius:999px;transition:.12s;
+  }
+  .admin-toggle:hover{border-color:var(--accent);color:var(--accent)}
+  .admin-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .admin-banner{
+    display:none;align-items:center;justify-content:space-between;gap:12px;
+    background:#fff4f2;border:1.5px solid var(--accent);border-radius:12px;
+    padding:11px 14px;margin-bottom:11px;font-size:14px;color:var(--accent-deep);
+  }
+  .admin-banner.show{display:flex}
+  .admin-done{
+    flex-shrink:0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+    background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:9px;
+  }
+  .admin-done:hover{filter:brightness(1.05)}
 
   .seatmap{
     display:grid;grid-template-columns:repeat(6,1fr);
@@ -103,6 +122,7 @@
   }
   .seat-gap{visibility:hidden}
   .seat{
+    position:relative;
     display:flex;align-items:center;justify-content:center;
     text-align:center;font-family:inherit;cursor:pointer;
     border:1.5px solid transparent;border-radius:11px;
@@ -120,6 +140,21 @@
     border-color:var(--accent);border-left-color:var(--accent);
     background:#fff4f2;box-shadow:0 0 0 2px var(--accent) inset;
   }
+  /* 부재중 좌석 */
+  .seat.away{
+    background:#efece6;color:#a49e91;cursor:not-allowed;
+    border-left-color:#c2bbab !important;
+  }
+  .seat.away .seat-name{color:#a49e91;text-decoration:line-through;text-decoration-thickness:1.5px}
+  .seat.away:hover{box-shadow:none;transform:none}
+  .away-tag{
+    position:absolute;top:6px;right:7px;
+    font-size:10px;font-weight:800;letter-spacing:.02em;
+    color:#fff;background:#9a9384;padding:2px 6px;border-radius:6px;
+  }
+  /* 관리 모드에서는 부재중 좌석도 클릭 가능 */
+  .seatmap.admin .seat.away{cursor:pointer}
+  .seatmap.admin .seat.away:hover{box-shadow:0 8px 18px -10px rgba(28,37,54,.5);transform:translateY(-2px)}
   .seat.empty{
     background:transparent;border:1.5px dashed #cdc4b2;color:#b3aa98;
     cursor:default;align-items:center;justify-content:center;
@@ -209,7 +244,14 @@
   <div class="card">
     <!-- 상단: 선생님 좌석표 -->
     <div class="seat-section">
-      <p class="seatcap">교사연구실 (화·목 I) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요</p>
+      <div class="seat-head">
+        <p class="seatcap" id="seatcap">교사연구실 (화·목 I) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요</p>
+        <button class="admin-toggle" id="adminToggle" title="관리">관리</button>
+      </div>
+      <div class="admin-banner" id="adminBanner">
+        <span>관리 모드 · 선생님을 눌러 <b>부재중/재실</b>을 바꾸세요.</span>
+        <button class="admin-done" id="adminDone">완료</button>
+      </div>
       <div class="seatmap" id="seatmap"></div>
     </div>
 
@@ -302,33 +344,96 @@
   const $ = id => document.getElementById(id);
   const tName = $('tName');
 
+  // ===== 부재중 상태 (이 기기에 저장) =====
+  const AWAY_KEY = 'teacherAway_v1';
+  let awaySet = new Set();
+  try{
+    const saved = JSON.parse(localStorage.getItem(AWAY_KEY) || '[]');
+    if(Array.isArray(saved)) awaySet = new Set(saved);
+  }catch(e){}
+  function saveAway(){
+    try{ localStorage.setItem(AWAY_KEY, JSON.stringify([...awaySet])); }catch(e){}
+  }
+
+  let adminMode = false; // 관리 모드일 때 좌석을 눌러 부재중 토글
+
   // 좌석표 렌더링
   const seatmap = $('seatmap');
   let allSeats = [];
-  SEAT_ROWS.forEach(row=>{
-    row.forEach(idx=>{
-      if(idx===null){
-        const sp=document.createElement('div');sp.className='seat-gap';
-        seatmap.appendChild(sp);return;
-      }
-      const s=SEATS[idx];
-      if(s.empty){
-        const e=document.createElement('div');
-        e.className='seat empty';e.textContent=s.label||'빈자리';
-        seatmap.appendChild(e);return;
-      }
-      const b=document.createElement('button');
-      b.type='button';b.className='seat dept-'+s.dept;
-      b.innerHTML=`<span class="seat-name">${s.name}</span>`;
-      b.onclick=()=>{
-        allSeats.forEach(x=>x.classList.remove('on'));
-        b.classList.add('on');tName.value=s.name;
-      };
-      seatmap.appendChild(b);allSeats.push(b);
+  function renderSeats(){
+    seatmap.innerHTML = '';
+    allSeats = [];
+    SEAT_ROWS.forEach(row=>{
+      row.forEach(idx=>{
+        if(idx===null){
+          const sp=document.createElement('div');sp.className='seat-gap';
+          seatmap.appendChild(sp);return;
+        }
+        const s=SEATS[idx];
+        if(s.empty){
+          const e=document.createElement('div');
+          e.className='seat empty';e.textContent=s.label||'빈자리';
+          seatmap.appendChild(e);return;
+        }
+        const isAway = awaySet.has(s.name);
+        const b=document.createElement('button');
+        b.type='button';
+        b.className='seat dept-'+s.dept + (isAway?' away':'');
+        b.innerHTML=`<span class="seat-name">${s.name}</span>`
+          + (isAway?`<span class="away-tag">부재중</span>`:'');
+        b.onclick=()=>{
+          if(adminMode){
+            // 관리 모드: 부재중 토글
+            if(awaySet.has(s.name)) awaySet.delete(s.name);
+            else awaySet.add(s.name);
+            saveAway();
+            renderSeats();
+            return;
+          }
+          if(isAway) return; // 학생 모드: 부재중은 선택 불가
+          allSeats.forEach(x=>x.classList.remove('on'));
+          b.classList.add('on');tName.value=s.name;
+        };
+        seatmap.appendChild(b);allSeats.push(b);
+      });
     });
-  });
+  }
+  renderSeats();
 
-  // 학년·반 범위 — 학교 상황에 맞게 숫자만 바꾸세요
+  // ===== 관리 모드 (부재중 설정) =====
+  // 실수 방지용 PIN. 학교에서 원하는 숫자로 바꾸세요.
+  const ADMIN_PIN = '8864';
+
+  const adminToggle = $('adminToggle');
+  const adminBanner = $('adminBanner');
+  const adminDone = $('adminDone');
+
+  function enterAdmin(){
+    adminMode = true;
+    seatmap.classList.add('admin');
+    adminToggle.classList.add('on');
+    adminBanner.classList.add('show');
+    $('seatcap').textContent = '관리 모드 · 부재중으로 바꿀 선생님을 누르세요';
+    tName.value=''; allSeats.forEach(x=>x.classList.remove('on'));
+    renderSeats();
+  }
+  function exitAdmin(){
+    adminMode = false;
+    seatmap.classList.remove('admin');
+    adminToggle.classList.remove('on');
+    adminBanner.classList.remove('show');
+    $('seatcap').textContent = '교사연구실 (화·목 I) 좌석표 · 자리를 눌러 찾는 선생님을 고르세요';
+    renderSeats();
+  }
+
+  adminToggle.addEventListener('click', ()=>{
+    if(adminMode){ exitAdmin(); return; }
+    const pin = prompt('관리 PIN을 입력하세요');
+    if(pin === null) return;            // 취소
+    if(pin === ADMIN_PIN){ enterAdmin(); }
+    else { alert('PIN이 올바르지 않습니다.'); }
+  });
+  adminDone.addEventListener('click', exitAdmin);
   const GRADES = 3;            // 1~3학년
   const CLASSES_PER_GRADE = 8; // 각 학년 1~8반
 
@@ -380,6 +485,10 @@
     if(!teacher) missing.push('찾는 선생님');
     if(missing.length){
       alert(missing.join(', ') + ' 을(를) 입력해 주세요.');
+      return;
+    }
+    if(awaySet.has(teacher)){
+      alert(teacher + ' 선생님은 현재 부재중입니다. 다른 선생님을 선택해 주세요.');
       return;
     }
 
